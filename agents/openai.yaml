@@ -1,0 +1,10 @@
+interface:
+  display_name: "DSH Plugin UI"
+  short_description: "Build consistent, accessible DSH plugins"
+  icon_small: "./assets/dsh-plugin-ui.svg"
+  icon_large: "./assets/dsh-plugin-ui.svg"
+  brand_color: "#2563EB"
+  default_prompt: "Use $dsh-plugin-ui to build or review a DSH plugin with the standard sidebar and panel contract."
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,26 @@
+.dsh-plugin-panel {
+  color: var(--dsw-alias-content-text, currentColor);
+  background: var(--dsw-alias-surface-bg, transparent);
+  min-width: 0;
+}
+
+.dsh-plugin-panel__header,
+.dsh-plugin-panel__body,
+.dsh-plugin-panel__footer {
+  padding: 16px;
+}
+
+.dsh-plugin-panel__header {
+  border-bottom: 1px solid var(--dsw-alias-border, currentColor);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .dsh-plugin-panel__header,
+  .dsh-plugin-panel__body,
+  .dsh-plugin-panel__footer { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-plugin-panel * { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}

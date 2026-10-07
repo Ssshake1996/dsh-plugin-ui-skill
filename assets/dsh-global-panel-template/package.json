@@ -1,0 +1,31 @@
+{
+  "name": "my-dsh-plugin-bundle",
+  "version": "0.1.0",
+  "description": "A DSH plugin with one host-owned global panel",
+  "type": "module",
+  "main": "./index.mjs",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.mjs",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.mjs",
+    "client.js",
+    "register-global-panel.mjs",
+    "icon.svg",
+    "locale/en.json",
+    "locale/zh.json",
+    "ui/panel-shell.mjs",
+    "ui/styles.css"
+  ],
+  "engines": {
+    "dsh": ">=0.2.0"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": ["slots", "locale", "layout"]
+    }
+  }
+}

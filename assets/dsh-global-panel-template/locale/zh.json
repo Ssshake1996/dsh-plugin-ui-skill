@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "我的 DSH 插件",
+    "description": "使用 DSH 宿主统一侧栏和面板的插件。"
+  },
+  "panel": "我的 DSH 插件"
+}

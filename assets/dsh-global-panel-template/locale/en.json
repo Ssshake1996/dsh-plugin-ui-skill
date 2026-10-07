@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "My DSH plugin",
+    "description": "A DSH plugin with a host-owned global panel."
+  },
+  "panel": "My DSH plugin"
+}
