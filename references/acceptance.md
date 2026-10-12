@@ -8,7 +8,9 @@ Run the Skill checker against the plugin root and keep the output with the relea
 node "$env:CODEX_HOME\skills\dsh-plugin-ui\scripts\check_dsh_ui_contract.mjs" .
 ```
 
-Expected checks include stable identity, paired `main`/`sidebar.panellist`, locale-aware label, icon props, no obvious custom sidebar, and package metadata files.
+The checker covers package identity/version/main, declared client sources, host inject metadata, native slot signals, a shared stable UI ID, and locale/tooltip label signals. Confirm its inspected-file list points to the actual client. With `exports["./client"]`, a missing source must fail instead of falling back to unrelated server/conventional code. Without that export, conventional entry checks are retained.
+
+The checker does not resolve the JavaScript import graph or prove icon props, absence of custom sidebars, packaged locale files, lifecycle cleanup, or host compatibility; inspect those artifacts and exercise the running host separately. Scoped npm package names are valid technical identities and do not replace the kebab-case sidebar/main ID.
 
 ## Fake-slot/unit checks
 

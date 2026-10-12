@@ -17,7 +17,7 @@ description: "开发、审查或升级 DeepSeek Harness（DSH）插件时，自�
    node "$env:CODEX_HOME\skills\dsh-plugin-ui\scripts\check_dsh_ui_contract.mjs" <plugin-root>
    ```
 
-   如果 `CODEX_HOME` 未设置，使用本 Skill 的实际绝对路径。脚本是辅助证据，不能代替真实 DSH 浏览器验收。
+   如果 `CODEX_HOME` 未设置，使用本 Skill 的实际绝对路径。检查输出中的实际扫描文件：声明了 `exports["./client"]` 时应检查客户端（包括条件 exports），不能用服务器 `package.main` 代替。脚本是辅助证据，不能代替真实 DSH 浏览器验收。
 
 ## 默认实现契约
 
@@ -25,7 +25,7 @@ description: "开发、审查或升级 DeepSeek Harness（DSH）插件时，自�
 
 - 一个插件默认只有一个全局面板入口；插件内部的多个功能放在面板的 tabs 或 `details/summary` 中。
 - `PANEL_ID` 同时用于 `sidebar.panellist.id` 和 `main.key`，使用稳定的 kebab-case。改显示名称不应修改 MCP server name、工具前缀、旧 profile 所依赖的技术 ID。
-- `package.json`、Codex manifest、DSH locale 和 sidebar 使用同一个用户可见产品名。技术包名可以保留兼容别名，但必须在文档中说明。
+- Codex manifest 的 displayName、DSH locale 和 sidebar 使用同一个用户可见产品名。`package.json.name` 是技术身份，可以使用合法的 scoped npm 名（如 `@dsh/remote-ops`）；它不必等于 `PANEL_ID`，不要为通过 UI 检查而重命名已发布的技术包。
 - Web bundle 暴露 `locale/en.json` 和 `locale/zh.json`，并在 `package.json.files` 中列出实际文件路径；不要只写无法被自定义打包器展开的 glob。
 - 图标是单色 currentColor SVG。图标函数只接收宿主传入的 `{ size, active }`，不包自己的 button、label、背景或折叠按钮。
 

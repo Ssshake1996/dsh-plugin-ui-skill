@@ -2,6 +2,8 @@
 
 Reusable Codex Skill for building and reviewing DeepSeek Harness (DSH) plugins with a consistent Web UI contract.
 
+Current version: **v0.1.1**. See [CHANGELOG.md](CHANGELOG.md) for the scoped-package and declared-client checker fixes.
+
 It teaches the agent to use DSH's host-owned `sidebar.panellist` and `main` slots, keep a stable plugin identity, provide locale-aware labels and accessible panels, avoid custom sidebars, handle lifecycle cleanup, and validate compatibility before release. It applies to any DSH plugin repository.
 
 ## Install for Codex
@@ -28,10 +30,13 @@ The skill keeps implicit invocation enabled. It should be selected automatically
 ```powershell
 $env:PYTHONUTF8 = '1'
 python <skill-creator>/scripts/quick_validate.py .
+node --test test/check_dsh_ui_contract.test.mjs
 node scripts/check_dsh_ui_contract.mjs <plugin-root>
 ```
 
 The static checker is evidence for common mistakes, not a substitute for real DSH Web testing. Release evidence should include host version, viewport, expand/collapse, keyboard, ARIA, reduced-motion, reload/reconnect, uninstall, and console checks.
+
+The checker accepts valid lowercase npm package names, including scoped names; the sidebar/main UI key still uses stable kebab-case. When `exports["./client"]` is declared, it inspects that client source, including conditional/array targets, instead of treating `package.main` as browser code. Missing or out-of-root targets and targets under `node_modules` fail. Without a declared client export, the existing conventional entry-file checks remain available. It is a bounded source inspection, not a JavaScript import resolver or runtime compatibility proof.
 
 ## Scope
 

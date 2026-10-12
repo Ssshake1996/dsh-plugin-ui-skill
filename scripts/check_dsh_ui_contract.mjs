@@ -68,6 +68,45 @@ function isStableIdentity(value) {
     && !/(?:todo|example|sample|plugin-name|replace|undefined)/i.test(value);
 }
 
+// npm package names are technical identities; scoped names and dots/underscores
+// are legal here even though host UI ids must remain kebab-case.
+function isPackageName(value) {
+  if (typeof value !== 'string' || value.length > 214) return false;
+  const parts = value.startsWith('@') ? value.slice(1).split('/') : [value];
+  if (parts.length !== (value.startsWith('@') ? 2 : 1)) return false;
+  return parts.every((part) => /^[a-z0-9~][a-z0-9._~-]*$/.test(part)
+    && !['node_modules', 'favicon.ico'].includes(part));
+}
+
+function clientTargets(value) {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap(clientTargets);
+  if (value && typeof value === 'object') {
+    // A declaration file is not an executable client entry.
+    return Object.entries(value).filter(([condition]) => condition !== 'types')
+      .flatMap(([, target]) => clientTargets(target));
+  }
+  return [];
+}
+
+function localSource(target) {
+  if (typeof target !== 'string' || !target.startsWith('./')) return null;
+  const absolute = path.resolve(root, target);
+  const withinRoot = (base, candidate) => {
+    const relative = path.relative(base, candidate);
+    return relative && !relative.startsWith(`..${path.sep}`) && relative !== '..'
+      && !path.isAbsolute(relative) && !relative.split(path.sep).includes('node_modules');
+  };
+  try {
+    if (!withinRoot(root, absolute) || !withinRoot(fs.realpathSync(root), fs.realpathSync(absolute))
+      || !fs.statSync(absolute).isFile() || !/\.(?:[cm]?js|jsx|tsx?)$/.test(absolute)
+      || /\.d\.[cm]?ts$/.test(absolute)) return null;
+    return path.relative(root, absolute);
+  } catch {
+    return null;
+  }
+}
+
 if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
   add('root', 'error', `Plugin root does not exist or is not a directory: ${root}`);
 } else {
@@ -85,10 +124,10 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
   }
 
   if (pkg) {
-    if (isStableIdentity(pkg.name)) {
-      add('identity.package-name', 'pass', `Stable package identity: ${pkg.name}`);
+    if (isPackageName(pkg.name)) {
+      add('identity.package-name', 'pass', `Valid lowercase npm package identity: ${pkg.name}`);
     } else {
-      add('identity.package-name', 'error', 'package.name must be a stable lowercase hyphenated id (for example, my-plugin).', { value: pkg.name });
+      add('identity.package-name', 'error', 'package.name must be a valid lowercase npm name (for example, my-plugin or @team/my-plugin).', { value: pkg.name });
     }
 
     if (typeof pkg.version === 'string' && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(pkg.version)) {
@@ -135,12 +174,30 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
     add('plugin-manifest', 'warn', 'No .codex-plugin/plugin.json found; keep this warning only for packages that are not Codex plugins.');
   }
 
-  // Search the entry point and the conventional client file.  The search is
-  // bounded to root-level source files to avoid scanning node_modules/builds.
+  // Prefer the declared browser/client entry to a package.main that may be
+  // server-only. Conditional exports can point to more than one client file.
+  // Preserve conventional candidates only for packages without ./client.
   const candidates = [];
-  if (pkg?.main && exists(pkg.main)) candidates.push(pkg.main);
-  for (const relative of ['client.js', 'client.mjs', 'register-global-panel.mjs', 'register-global-panel.js', 'index.js', 'index.mjs', 'src/client.js', 'src/client.mjs']) {
-    if (exists(relative) && !candidates.includes(relative)) candidates.push(relative);
+  const declaredClient = pkg?.exports && Object.hasOwn(pkg.exports, './client');
+  if (declaredClient) {
+    const targets = [...new Set(clientTargets(pkg.exports['./client']))];
+    if (!targets.length) add('entry.client', 'error', 'exports["./client"] has no executable client target.');
+    for (const target of targets) {
+      const relative = localSource(target);
+      if (relative) {
+        candidates.push(relative);
+        add('entry.client', 'pass', `Client export resolves to ${relative}.`);
+      } else {
+        add('entry.client', 'error', `Client export must resolve to a local source file outside node_modules: ${target}`);
+      }
+    }
+  } else {
+    const conventional = [pkg?.main, 'client.js', 'client.mjs', 'register-global-panel.mjs', 'register-global-panel.js', 'index.js', 'index.mjs', 'src/client.js', 'src/client.mjs'];
+    for (const target of conventional) {
+      if (typeof target !== 'string') continue;
+      const relative = localSource(target.startsWith('./') ? target : `./${target}`);
+      if (relative && !candidates.includes(relative)) candidates.push(relative);
+    }
   }
   let source = '';
   for (const relative of candidates) source += `\n/* ${relative} */\n${read(relative) ?? ''}`;
@@ -171,18 +228,23 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
   }
 
   const registrations = [...source.matchAll(/slots\.register\(\s*\{([\s\S]*?)\}\s*(?:,|\))/g)].map((match) => match[1]);
-  const stableConstant = firstMatch(source, [
-    /\b(?:const|let)\s+([A-Z][A-Z0-9_]*(?:PANEL|PLUGIN|ID)[A-Z0-9_]*)\s*=\s*['"]([^'"]+)['"]/, 
-    /\b(?:const|let)\s+((?:PANEL|PLUGIN)[A-Z0-9_]*ID)\s*=\s*['"]([^'"]+)['"]/
-  ]);
-  const inferredUiId = stableConstant && isStableIdentity(stableConstant[2]) ? stableConstant[2] : null;
+  const constants = new Map([...source.matchAll(/\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*['"]([^'"]+)['"]/g)]
+    .map((match) => [match[1], match[2]]));
+  const inferredUiId = constants.get('PANEL_ID') ?? constants.get('PLUGIN_ID') ?? null;
+  // Preserve the bundled helper pattern, but only infer its `id` parameter
+  // from an explicit caller argument rather than an unrelated first constant.
+  const helperIds = [...source.matchAll(/\bregisterGlobalPanel\(\s*[^,]+,\s*\{[^}]*?\bid\s*:\s*([A-Za-z_$][\w$]*)\s*(?:,|\})/g)]
+    .map((match) => constants.get(match[1])).filter(Boolean);
+  const sharedHelperId = helperIds.length && new Set(helperIds).size === 1 ? helperIds[0] : null;
   const descriptorValue = (block, property) => {
-    const match = block.match(new RegExp(`${property}\\s*:\\s*['"]([^'"]+)['"]`));
+    const match = block.match(new RegExp(`\\b${property}\\s*:\\s*['"]([^'"]+)['"]`));
     if (match?.[1]) return match[1];
-    // Shared helpers often receive `id` as an argument and use object
-    // shorthand (`{ id }`). Resolve that shorthand from PANEL_ID/PLUGIN_ID
-    // when the caller declares a stable constant.
-    return inferredUiId && new RegExp(`\\b${property}\\b`).test(block) ? inferredUiId : null;
+    const reference = block.match(new RegExp(`\\b${property}\\s*:\\s*([A-Za-z_$][\\w$]*)(?=\\s*(?:,|$))`))?.[1];
+    if (reference) return constants.get(reference) ?? (reference === 'id' ? sharedHelperId : null);
+    if (new RegExp(`(?:^|,)\\s*${property}\\s*(?:,|$)`).test(block)) {
+      return constants.get(property) ?? (property === 'id' ? sharedHelperId : null);
+    }
+    return null;
   };
   const sidebarIds = registrations
     .filter((block) => /(?:name|slot)\s*:\s*['"]sidebar\.panellist['"]/.test(block))
@@ -190,8 +252,10 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
   const mainIds = registrations
     .filter((block) => /(?:name|slot)\s*:\s*['"]main['"]/.test(block))
     .map((block) => descriptorValue(block, 'key') || descriptorValue(block, 'id')).filter(Boolean);
-  if (sidebarIds.length && mainIds.length && sidebarIds.some((id) => mainIds.includes(id))) {
+  if (sidebarIds.length && mainIds.length && sidebarIds.some((id) => isStableIdentity(id) && mainIds.includes(id))) {
     add('host.sidebar-main-pair', 'pass', `Sidebar and main panel share a stable key (${sidebarIds.find((id) => mainIds.includes(id))}).`);
+  } else if (sidebarIds.length && mainIds.length) {
+    add('host.sidebar-main-pair', 'error', 'Resolved sidebar and main registration keys do not match.', { sidebarIds, mainIds });
   } else if (hasSidebarSlot && hasMainSlot) {
     add('host.sidebar-main-pair', 'warn', 'Could not prove that sidebar and main registration share the same stable key; use one explicit panelKey.');
   }
@@ -200,6 +264,8 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
   const idMatch = descriptorId ? [null, descriptorId] : firstMatch(source, [/(?:panelKey)\s*:\s*['"]([^'"]+)['"]/]);
   if (idMatch && isStableIdentity(idMatch[1])) {
     add('identity.ui-id', 'pass', `UI descriptor has a stable id/key: ${idMatch[1]}`);
+  } else if (idMatch) {
+    add('identity.ui-id', 'error', 'UI descriptor id/key must be stable kebab-case, independent from the npm package name.', { value: idMatch[1] });
   } else {
     add('identity.ui-id', 'warn', 'Add an explicit stable id/panelKey shared by sidebar and main registration.');
   }

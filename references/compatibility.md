@@ -19,6 +19,7 @@ DSH app boot 通常从 bundle 的 `icon`、`exports` 和 locale 文件读取插�
 {
   "icon": "./icon.svg",
   "exports": {
+    "./client": "./client.js",
     "./locale/*.json": "./locale/*.json"
   },
   "files": ["index.mjs", "client.js", "icon.svg", "locale/en.json", "locale/zh.json"]
@@ -26,6 +27,8 @@ DSH app boot 通常从 bundle 的 `icon`、`exports` 和 locale 文件读取插�
 ```
 
 不要只依赖自定义 stage 工具展开 `files` glob；发布前在 staging 目录检查 icon 和两个 locale 是否真的存在。
+
+服务器与 Web client 分离的包，应按目标 DSH 的实际 loader 声明 client 入口。静态检查优先读取 `exports["./client"]`（支持条件对象和数组）；`package.main` 可以仍然指向服务器。技术包名允许 scoped npm 名，侧栏与 main 使用的 UI ID 仍是独立的稳定 kebab-case。
 
 ## Upgrade and lifecycle
 
