@@ -14,13 +14,13 @@ The checker does not resolve the JavaScript import graph or prove icon props, ab
 
 ## Fake-slot/unit checks
 
-Use a fake `ctx.slots` implementation to assert that the plugin registers exactly one main entry and one sidebar entry, uses the same ID/key, returns disposers, and leaves no entries after disposal. Test label resolution for Chinese and English and icon output for `active=true/false` and two sizes.
+For a main workspace, assert one paired main/sidebar entry with the same ID/key. For a right Sidebar, assert one official left action, no main replacement, an openTab call, a registered tab type whose ID matches its body key, and the correct session owner. Exercise disposers, service/slot unload and reload, locale labels and collapsed accessibility. Source checks cannot prove the runtime destination or lifecycle.
 
 ## Real DSH Web checks
 
 At minimum test:
 
-1. 1280px expanded sidebar: row label, icon, active state and click open the right panel.
+1. 1280px expanded sidebar: label, icon and click open the requested destination. For a right Sidebar, prove the main conversation DOM and draft remain, repeated clicks reuse one tab, and closing/reopening preserves the conversation. Main-workspace navigation intentionally replaces the main area.
 2. Collapse/reopen: 56px rail, tooltip/accessible name, no duplicate row.
 3. 390px narrow view: panel remains usable, no horizontal overflow or clipped action.
 4. Reload and MCP reconnect: current panel/tab and error/retry state behave predictably.

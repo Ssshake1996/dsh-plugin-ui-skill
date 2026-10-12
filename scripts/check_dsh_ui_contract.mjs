@@ -211,6 +211,11 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
   const hasRegister = /(?:ctx\.)?slots\s*\.\s*register\s*\(/.test(source);
   const hasSidebarSlot = /sidebar\.panellist/.test(source);
   const hasMainSlot = /(?:name\s*:\s*['"]main['"]|slot\s*:\s*['"]main['"])/.test(source);
+  const hasFooterAction = /(?:name|slot)\s*:\s*['"]sidebar\.footer\.action['"]/.test(source);
+  const hasRightBody = /(?:name|slot)\s*:\s*['"]sidebar\.right\.pane\.tab['"]/.test(source);
+  const hasRightTab = /sidebarRightTabs\s*\.\s*register\s*\(/.test(source);
+  const hasRightOpen = /\bopenTab\s*\(/.test(source);
+  const hasRightNavigation = hasFooterAction && hasRightBody && hasRightTab && hasRightOpen;
   if (hasInject && hasRegister) {
     add('host.slots-api', 'pass', 'Uses host-native slots.inject + slots.register.');
   } else {
@@ -218,13 +223,17 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
   }
   if (hasSidebarSlot) {
     add('host.sidebar-slot', 'pass', 'Registers the host sidebar.panellist slot.');
+  } else if (hasFooterAction) {
+    add('host.sidebar-slot', 'pass', 'Uses the official sidebar.footer.action seat for an action that preserves the main conversation.');
   } else {
-    add('host.sidebar-slot', 'error', 'A web plugin must register sidebar.panellist so the host owns click, collapse, focus, and responsive behavior.');
+    add('host.sidebar-slot', 'error', 'Register sidebar.panellist for a main workspace or sidebar.footer.action for a right-Sidebar action.');
   }
   if (hasMainSlot) {
     add('host.main-slot', 'pass', 'Registers the host main slot.');
+  } else if (hasRightNavigation && !hasSidebarSlot) {
+    add('host.main-slot', 'pass', 'Uses a right-Sidebar tab instead of replacing the main conversation.');
   } else {
-    add('host.main-slot', 'error', 'Register a main slot panel paired with the sidebar item.');
+    add('host.main-slot', 'error', 'Pair sidebar.panellist with main, or provide a complete footer action + sidebarRightTabs + right tab body + openTab integration.');
   }
 
   const registrations = [...source.matchAll(/slots\.register\(\s*\{([\s\S]*?)\}\s*(?:,|\))/g)].map((match) => match[1]);
@@ -260,7 +269,21 @@ if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
     add('host.sidebar-main-pair', 'warn', 'Could not prove that sidebar and main registration share the same stable key; use one explicit panelKey.');
   }
 
-  const descriptorId = sidebarIds[0] || mainIds[0] || inferredUiId;
+  if (hasRightNavigation) {
+    const typeIds = [...source.matchAll(/sidebarRightTabs\s*\.\s*register\(\s*\{([\s\S]*?)\}\s*\)/g)]
+      .map((match) => descriptorValue(match[1], 'id')).filter(Boolean);
+    const bodyIds = registrations.filter((block) => /(?:name|slot)\s*:\s*['"]sidebar\.right\.pane\.tab['"]/.test(block))
+      .map((block) => descriptorValue(block, 'key')).filter(Boolean);
+    if (typeIds.length && bodyIds.length) {
+      const paired = typeIds.every((id) => bodyIds.includes(id));
+      add('host.right-tab-pair', paired ? 'pass' : 'error', paired ? 'Right-Sidebar type ids match their body keys.' : 'Right-Sidebar type ids and body keys do not match.', { typeIds, bodyIds });
+    } else {
+      add('host.right-tab-pair', 'warn', 'Could not resolve right-Sidebar type/body keys; verify the runtime registration.');
+    }
+  }
+  const footerIds = registrations.filter((block) => /(?:name|slot)\s*:\s*['"]sidebar\.footer\.action['"]/.test(block))
+    .map((block) => descriptorValue(block, 'id')).filter(Boolean);
+  const descriptorId = sidebarIds[0] || mainIds[0] || footerIds[0] || inferredUiId;
   const idMatch = descriptorId ? [null, descriptorId] : firstMatch(source, [/(?:panelKey)\s*:\s*['"]([^'"]+)['"]/]);
   if (idMatch && isStableIdentity(idMatch[1])) {
     add('identity.ui-id', 'pass', `UI descriptor has a stable id/key: ${idMatch[1]}`);

@@ -10,7 +10,7 @@ description: "开发、审查或升级 DeepSeek Harness（DSH）插件时，自�
 ## 适用时先做的事
 
 1. 检查仓库的插件身份、`package.json`、`.codex-plugin/plugin.json`、`cordis.patch.yml`、Web client 入口和当前 DSH 版本。不要假设不同 DSH 版本的 slot 契约相同。
-2. 找到 DSH 的 `sidebar.panellist` 和 `main` slot；若仓库已有注册，先复用并修正，不要增加第二套侧栏实现。
+2. 先确定用户需要主工作区还是保留对话的右侧栏。DSH 0.2.0-rc.2 的 `sidebar.panellist` 点击固定选择 `main`；右栏使用官方 `sidebar.footer.action` 调用 `sidebarRight.openTab`，并注册 `sidebarRightTabs` 和 `sidebar.right.pane.tab`。不要用主工作区替代用户要求的右栏，不要增加第二套侧栏实现。
 3. 运行本 Skill 的静态检查：
 
    ```powershell
@@ -24,10 +24,10 @@ description: "开发、审查或升级 DeepSeek Harness（DSH）插件时，自�
 ### 身份和元数据
 
 - 一个插件默认只有一个全局面板入口；插件内部的多个功能放在面板的 tabs 或 `details/summary` 中。
-- `PANEL_ID` 同时用于 `sidebar.panellist.id` 和 `main.key`，使用稳定的 kebab-case。改显示名称不应修改 MCP server name、工具前缀、旧 profile 所依赖的技术 ID。
+- 主工作区的 `PANEL_ID` 同时用于 `sidebar.panellist.id` 和 `main.key`，使用稳定的 kebab-case。右栏模式使用稳定的左侧 action ID，`sidebarRightTabs.register.id` 与 `sidebar.right.pane.tab.key` 一致；已有右栏技术 ID 可以保留 scoped 名。改显示名称不应修改 MCP server name、工具前缀、旧 profile 所依赖的技术 ID。
 - Codex manifest 的 displayName、DSH locale 和 sidebar 使用同一个用户可见产品名。`package.json.name` 是技术身份，可以使用合法的 scoped npm 名（如 `@dsh/remote-ops`）；它不必等于 `PANEL_ID`，不要为通过 UI 检查而重命名已发布的技术包。
 - Web bundle 暴露 `locale/en.json` 和 `locale/zh.json`，并在 `package.json.files` 中列出实际文件路径；不要只写无法被自定义打包器展开的 glob。
-- 图标是单色 currentColor SVG。图标函数只接收宿主传入的 `{ size, active }`，不包自己的 button、label、背景或折叠按钮。
+- 图标是单色 currentColor SVG。主工作区图标函数只接收宿主传入的 `{ size, active }`，不包自己的 button、label、背景或折叠按钮。`sidebar.footer.action` 只提供 `{ wide }`，该操作位需要插件渲染可访问按钮，可复用公开的宿主 Tooltip/Button 和主题 token。
 
 ### 规范注册顺序
 
@@ -60,15 +60,33 @@ export function apply(ctx) {
 }
 ```
 
-`main` 与 `sidebar.panellist` 必须由同一个生命周期 owner 注册并可被卸载。`label` 使用 locale thunk，使语言切换和收起后的 Tooltip 都能更新。若目标 DSH 版本没有上述 slot，降级为兼容的单入口面板并报告版本差异，不要读 DOM 或复制侧栏。
+上述配对仅适用于主工作区。`main` 与 `sidebar.panellist` 必须由同一个生命周期 owner 注册并可被卸载。右栏模式不注册这对 slot，改用：
+
+```js
+ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+  name: 'sidebar.footer.action', id: 'my-plugin-launch', label: () => t('panel'),
+}, ({ wide }) => React.createElement('button', {
+  type: 'button', 'aria-label': t('panel'),
+  onClick: () => ctx.sidebarRight.openTab('my-plugin'),
+}, wide ? t('panel') : React.createElement(Icon, { size: 18 }))))
+ctx.inject(['sidebarRight', 'sidebarRightTabs'], ready => {
+  ready.effect(() => ready.sidebarRightTabs.register({
+    id: 'my-plugin-tab', kind: 'my-plugin', title: () => t('panel'), guide: [],
+  }))
+  ready.effect(() => ready.slots.inject('sidebar.right.pane.tab', () =>
+    ready.slots.register({ name: 'sidebar.right.pane.tab', key: 'my-plugin-tab' }, Page)))
+})
+```
+
+具体服务读取方式以宿主 API 为准。入口须处理服务尚未就绪并清理重试；不能静默新建对话或临时选择主工作区。`label` 使用 locale thunk。缺少目标接口时报告版本差异，不要读 DOM 或复制侧栏。
 
 ### 宿主负责、插件不重复实现
 
-DSH 宿主负责侧栏 row 的按钮、点击、active 状态、`aria-current`、焦点 ring、收起后的 Tooltip、56px rail、宽度和约 150ms 的折叠转场。插件不得：
+主工作区模式的 row 按钮、点击、active 状态、`aria-current` 和 Tooltip 由宿主负责。右栏 action 自身提供按钮、可访问名称和折叠提示，不应标记为主页面选中态；整体侧栏宽度和折叠转场仍由宿主负责。插件不得：
 
 - 绘制 `position: fixed` 的自定义侧栏、iframe 或 body portal；
 - 通过 DOM 查询、全局 CSS 或 z-index 改写其他插件/宿主侧栏；
-- 自己创建第二个 sidebar button、折叠按钮或 tooltip；
+- 创建重复的 sidebar 入口或自有全局折叠按钮；
 - 硬编码宿主 row 的尺寸和颜色；
 - import 未公开的宿主 Client primitives。
 
@@ -88,7 +106,7 @@ DSH 宿主负责侧栏 row 的按钮、点击、active 状态、`aria-current`�
 
 1. **盘点契约**：记录 DSH UI API 版本、可用 slots、插件 manifest 字段和兼容范围。
 2. **稳定身份**：确定 `PANEL_ID`、用户可见名称、技术兼容名、locale namespace、order 区间；避免与内置 manager/schedule 或其他插件冲突。
-3. **接入宿主**：只注册配对的 `main`/`sidebar.panellist`，并让 disposer 与生命周期一致。
+3. **接入宿主**：按目标选择主工作区配对或左侧 action + 右栏 tab，保持唯一入口和一致的生命周期。右栏验收必须证明主对话及草稿保留。
 4. **实现面板**：使用模板中的 shell、tabs、details、host tokens 和明确的 loading/empty/error 状态。
 5. **静态检查**：运行 `check_dsh_ui_contract.mjs`，修复身份漂移、缺 locale、slot 不成对和自绘侧栏等问题。
 6. **真实验收**：在实际 DSH Web 中验证 1280px、390px、展开/收起、激活、刷新、重连、Tab/Enter/Space、Tooltip、ARIA、`prefers-reduced-motion`、卸载无残留和 console 无错误。

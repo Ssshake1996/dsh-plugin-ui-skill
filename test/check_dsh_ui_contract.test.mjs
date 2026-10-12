@@ -16,6 +16,15 @@ ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
   name: 'sidebar.panellist', id: PANEL_ID, label: () => t('panel'), title: 'Remote Ops'
 }, Icon));
 `;
+const rightClient = (bodyKey = 'TAB_ID') => `
+const TAB_ID = '@dsh/remote-ops';
+const t = ctx.locale.bind('remoteOps');
+ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
+  name: 'sidebar.footer.action', id: 'remote-ops-launch', label: () => t('panel')
+}, () => React.createElement('button', { 'aria-label': t('panel'), onClick: () => ctx.sidebarRight.openTab('remote-ops') })));
+ctx.sidebarRightTabs.register({ id: TAB_ID, kind: 'remote-ops', title: () => t('panel') });
+ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({ name: 'sidebar.right.pane.tab', key: ${bodyKey} }, Page));
+`;
 
 function fixture(t, overrides = {}, files = {}) {
   const prefix = path.join(os.tmpdir(), 'dsh-ui-check-');
@@ -60,6 +69,26 @@ test('scoped package uses its declared client while the main entry is server-onl
   assert.equal(check(result, 'identity.package-name').level, 'pass');
   assert.match(check(result, 'entry.source').message, /lib[\\/]client\.js/);
   assert.equal(check(result, 'host.sidebar-main-pair').level, 'pass');
+});
+
+test('a left action opens a registered right Sidebar tab without a main replacement', (t) => {
+  const result = inspect(fixture(t, {}, { 'lib/client.js': rightClient() }));
+  assert.equal(result.status, 0);
+  assert.equal(check(result, 'host.sidebar-slot').level, 'pass');
+  assert.equal(check(result, 'host.right-tab-pair').level, 'pass');
+  assert.equal(check(result, 'identity.ui-id').level, 'pass');
+});
+
+test('a footer action alone cannot pass as a complete right Sidebar integration', (t) => {
+  const client = rightClient().split('ctx.sidebarRightTabs.register')[0];
+  const result = inspect(fixture(t, {}, { 'lib/client.js': client }));
+  assert.equal(result.status, 1);
+});
+
+test('right Sidebar type id and body key must match even for scoped technical ids', (t) => {
+  const result = inspect(fixture(t, {}, { 'lib/client.js': rightClient("'other-body'") }));
+  assert.equal(result.status, 1);
+  assert.equal(check(result, 'host.right-tab-pair').level, 'error');
 });
 
 test('conditional and array client exports include executable targets, not declaration files', (t) => {

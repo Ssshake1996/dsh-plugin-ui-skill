@@ -6,7 +6,8 @@
 
 | DSH host | UI slot result | Locale/meta | Required behavior |
 |---|---|---|---|
-| 0.2.x | `sidebar.panellist` + `main` | `exports` + `locale/en.json` | full contract |
+| 0.2.0-rc.2 main workspace | `sidebar.panellist` + `main` | `exports` + `locale/en.json` | host selects main panel |
+| 0.2.0-rc.2 right Sidebar | `sidebar.footer.action` + `sidebarRightTabs` + `sidebar.right.pane.tab` | same | openTab preserves conversation; narrow layouts may use host full screen |
 | older/unknown | inspect at install time | may fall back to package name | one panel entry or clear diagnostic |
 
 版本号只是声明，不是实测证据。未知宿主必须优雅降级：保留 MCP 能力并报告缺失的 UI slot，不要复制侧栏或静默注册重复入口。

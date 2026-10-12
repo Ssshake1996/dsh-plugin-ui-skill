@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 - 2026-10-12
+
+- Correct the universal main/sidebar pairing rule: DSH 0.2.0-rc.2 panellist rows always select a main workspace. Tools that should preserve the conversation use the official footer action and native right-Sidebar tab API.
+- Accept complete right-Sidebar integrations in the checker, validate type/body keys, and reject incomplete or mismatched registrations. Existing scoped tab IDs remain compatible.
+- Add three regression fixtures (15 total); update host contract, compatibility and real-host acceptance to require preserved conversation/draft and reused tabs. The bundled template remains a main-workspace example.
+
 ## 0.1.1 - 2026-10-12
 
 - Accept valid scoped npm technical package names while keeping sidebar/main UI IDs stable kebab-case.

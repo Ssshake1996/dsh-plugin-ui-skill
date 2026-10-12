@@ -2,9 +2,9 @@
 
 Reusable Codex Skill for building and reviewing DeepSeek Harness (DSH) plugins with a consistent Web UI contract.
 
-Current version: **v0.1.1**. See [CHANGELOG.md](CHANGELOG.md) for the scoped-package and declared-client checker fixes.
+Current version: **v0.1.2**. See [CHANGELOG.md](CHANGELOG.md) for right-Sidebar navigation and checker corrections.
 
-It teaches the agent to use DSH's host-owned `sidebar.panellist` and `main` slots, keep a stable plugin identity, provide locale-aware labels and accessible panels, avoid custom sidebars, handle lifecycle cleanup, and validate compatibility before release. It applies to any DSH plugin repository.
+It distinguishes main workspaces (`sidebar.panellist` + `main`) from a left action opening the native right Sidebar (`sidebar.footer.action` + `sidebarRight.openTab`). Choose the destination the user requests, preserve conversation drafts for right-Sidebar tools, keep stable identity and accessible locale labels, and verify lifecycle and compatibility on the real host.
 
 ## Install for Codex
 
