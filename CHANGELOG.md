@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3 - 2026-10-12
+
+- Require expanded left-sidebar entries to align icons and labels to the left with native host entries; collapsed entries keep centered icons and accessible Tooltips.
+- Update the right-Sidebar action example with separate wide/collapsed styles, and clarify that main-workspace row layout remains host owned.
+- Require real-host geometry checks for expanded alignment and collapse/reopen behavior; static checks alone do not prove visual alignment.
+
 ## 0.1.2 - 2026-10-12
 
 - Correct the universal main/sidebar pairing rule: DSH 0.2.0-rc.2 panellist rows always select a main workspace. Tools that should preserve the conversation use the official footer action and native right-Sidebar tab API.

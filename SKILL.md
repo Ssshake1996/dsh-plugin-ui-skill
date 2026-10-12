@@ -28,6 +28,7 @@ description: "开发、审查或升级 DeepSeek Harness（DSH）插件时，自�
 - Codex manifest 的 displayName、DSH locale 和 sidebar 使用同一个用户可见产品名。`package.json.name` 是技术身份，可以使用合法的 scoped npm 名（如 `@dsh/remote-ops`）；它不必等于 `PANEL_ID`，不要为通过 UI 检查而重命名已发布的技术包。
 - Web bundle 暴露 `locale/en.json` 和 `locale/zh.json`，并在 `package.json.files` 中列出实际文件路径；不要只写无法被自定义打包器展开的 glob。
 - 图标是单色 currentColor SVG。主工作区图标函数只接收宿主传入的 `{ size, active }`，不包自己的 button、label、背景或折叠按钮。`sidebar.footer.action` 只提供 `{ wide }`，该操作位需要插件渲染可访问按钮，可复用公开的宿主 Tooltip/Button 和主题 token。
+- 左侧入口展开时，图标与文字必须左对齐，并与宿主原生入口的缩进一致；收起时仅显示居中的图标，保留可访问名称和 Tooltip。主工作区行由宿主负责；右栏 action 通过 `wide` 控制自身样式，禁止对展开和收起状态统一使用 `justify-content: center`。
 
 ### 规范注册顺序
 
@@ -66,9 +67,11 @@ export function apply(ctx) {
 ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register({
   name: 'sidebar.footer.action', id: 'my-plugin-launch', label: () => t('panel'),
 }, ({ wide }) => React.createElement('button', {
-  type: 'button', 'aria-label': t('panel'),
+  type: 'button', className: 'my-plugin-launch', 'data-wide': wide,
+  'aria-label': t('panel'),
   onClick: () => ctx.sidebarRight.openTab('my-plugin'),
-}, wide ? t('panel') : React.createElement(Icon, { size: 18 }))))
+}, React.createElement(Icon, { size: 16 }),
+   wide ? React.createElement('span', null, t('panel')) : null)))
 ctx.inject(['sidebarRight', 'sidebarRightTabs'], ready => {
   ready.effect(() => ready.sidebarRightTabs.register({
     id: 'my-plugin-tab', kind: 'my-plugin', title: () => t('panel'), guide: [],
@@ -77,6 +80,34 @@ ctx.inject(['sidebarRight', 'sidebarRightTabs'], ready => {
     ready.slots.register({ name: 'sidebar.right.pane.tab', key: 'my-plugin-tab' }, Page)))
 })
 ```
+
+操作位按钮使用插件自己的样式前缀；例如在 DSH 0.2.0-rc.2 中：
+
+```css
+.my-plugin-launch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  cursor: pointer;
+}
+.my-plugin-launch[data-wide="true"] {
+  justify-content: flex-start;
+  text-align: start;
+  padding-inline: 10px;
+}
+.my-plugin-launch svg { flex: none; }
+```
+
+按钮的 hover/focus 使用公开组件或 `--dsw-*` 主题 token；收起时用公开 Tooltip 包裹按钮并提供 locale label，展开时禁用 Tooltip。上述缩进是该版本宿主的示例，必须在真实宿主中与原生入口的图标和文字位置核对；仅修改插件按钮，不查询或改写宿主 DOM 来驱动运行时布局。
 
 具体服务读取方式以宿主 API 为准。入口须处理服务尚未就绪并清理重试；不能静默新建对话或临时选择主工作区。`label` 使用 locale thunk。缺少目标接口时报告版本差异，不要读 DOM 或复制侧栏。
 

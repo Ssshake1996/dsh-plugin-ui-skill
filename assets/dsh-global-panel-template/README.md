@@ -14,3 +14,5 @@ ui/styles.css
 ```
 
 面板内部子功能放进 tabs/details，不要复制侧栏 row。
+
+本模板的主工作区行由宿主负责对齐。若工具应保留主对话并打开右栏，改用 `SKILL.md` 中的官方 footer action 示例：展开时图标与文字左对齐，收起时图标居中并显示 Tooltip；不要复制本模板的 main 配对作为右栏入口。

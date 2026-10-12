@@ -20,8 +20,8 @@ For a main workspace, assert one paired main/sidebar entry with the same ID/key.
 
 At minimum test:
 
-1. 1280px expanded sidebar: label, icon and click open the requested destination. For a right Sidebar, prove the main conversation DOM and draft remain, repeated clicks reuse one tab, and closing/reopening preserves the conversation. Main-workspace navigation intentionally replaces the main area.
-2. Collapse/reopen: 56px rail, tooltip/accessible name, no duplicate row.
+1. 1280px expanded sidebar: icon and label are left aligned with native host entries, not centered as a group. Compare their actual horizontal positions in the rendered host; a source check cannot prove alignment. Clicking opens the requested destination. For a right Sidebar, prove the main conversation DOM and draft remain, repeated clicks reuse one tab, and closing/reopening preserves the conversation. Main-workspace navigation intentionally replaces the main area.
+2. Collapse/reopen: 56px rail, centered icon without label, tooltip/accessible name, no duplicate row; reopening restores left alignment.
 3. 390px narrow view: panel remains usable, no horizontal overflow or clipped action.
 4. Reload and MCP reconnect: current panel/tab and error/retry state behave predictably.
 5. Keyboard: Tab reaches the row, Enter/Space activates it, tabs support arrows/Home/End, focus is visible.
